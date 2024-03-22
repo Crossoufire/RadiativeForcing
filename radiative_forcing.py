@@ -25,24 +25,24 @@ H = 8500
 
 
 def temperature_uniform(z: float):
-    """ Applying a uniform temperature """
-    T0 = 288.2
+    """ Considering only a uniform temperature at sea level """
+    T0 = 288.2  # Temperature at sea level in Kelvin
     return T0 * np.ones_like(z)
 
 
 def temperature_simple(z: float):
-    """ Applying a uniform temperature """
-
-    T0 = 288.2          # Temperature at sea level in K
-    z_trop = 11000      # Tropopause height in m
-    Gamma = -0.0065     # Temperature gradient in K/m
+    """ Calculates the temperature at a given altitude using a simple atmospheric model """
+    T0 = 288.2          # Temperature at sea level in Kelvin
+    z_trop = 11000      # Tropopause height in meter
+    Gamma = -0.0065     # Temperature gradient in Kelvin/meter
 
     T_trop = T0 + Gamma * z_trop
     return np.piecewise(z, [z < z_trop, z >= z_trop], [lambda z: T0 + Gamma * z, lambda z: T_trop])
 
 
 def temperature_US1976(z: float):
-    """ Applying the US1976 temperature """
+    """ Calculates the atmospheric temperature based on the 1976 United States Standard Atmosphere model. 
+    This model divides the atmosphere into distinct layers, each with its own temperature profile. """
 
     # Convert altitude to [km] for easier comparisons
     z_km = z / 1000
@@ -71,25 +71,36 @@ def temperature_US1976(z: float):
     T_meso1 = T_stratopause
     z_meso1 = 71
 
-    # Mesosphere 2 (71 to ...)
+    # Mesosphere 2 (71 to +∞)
     T_meso2 = 214.65
 
-    conds = [z_km < z_trop, (z_km >= z_trop) & (z_km < z_tropopause), (z_km >= z_tropopause) & (z_km < z_strat1),
-         (z_km >= z_strat1) & (z_km < z_strat2), (z_km >= z_strat2) & (z_km < z_stratopause),
-         (z_km >= z_stratopause) & (z_km < z_meso1), z_km >= z_meso1]
+    conds = [
+        z_km < z_trop, 
+        (z_km >= z_trop) & (z_km < z_tropopause), 
+        (z_km >= z_tropopause) & (z_km < z_strat1),
+        (z_km >= z_strat1) & (z_km < z_strat2), 
+        (z_km >= z_strat2) & (z_km < z_stratopause),
+        (z_km >= z_stratopause) & (z_km < z_meso1), 
+        z_km >= z_meso1,
+    ]
 
-    conds2 = [lambda z: T0 - 6.5 * z, lambda z: T_tropopause, lambda z: T_strat1 + 1 * (z - z_tropopause),
-              lambda z: T_strat2 + 2.8 * (z - z_strat1), lambda z: T_stratopause,
-              lambda z: T_meso1 - 2.8 * (z - z_stratopause), lambda z: T_meso2 - 2 * (z - z_meso1)]
+    functions = [
+        lambda z: T0 - 6.5 * z, 
+        lambda z: T_tropopause, 
+        lambda z: T_strat1 + 1 * (z - z_tropopause),
+        lambda z: T_strat2 + 2.8 * (z - z_strat1), 
+        lambda z: T_stratopause,
+        lambda z: T_meso1 - 2.8 * (z - z_stratopause), 
+        lambda z: T_meso2 - 2 * (z - z_meso1),
+    ]
 
-    return np.piecewise(z_km, conds, conds2)
+    return np.piecewise(z_km, conds, functions)
 
 
 class RadiativeTransfer:
     """ Radiative transfer simulation class """
 
-    def __init__(self, CO2_frac, z_max, delta_z, lambda_min, lambda_max, delta_lambda, model):
-        # Initialize variables
+    def __init__(self, CO2_frac: float, z_max: float, delta_z: float, lambda_min: float, lambda_max: float, delta_lambda: float, model):
         self.CO2_frac = CO2_frac
         self.z_max = z_max
         self.delta_z = delta_z
@@ -162,6 +173,7 @@ class RadiativeTransfer:
 
 if __name__ == "__main__":
 
+    # Parameters to use the RadiativeTransfer class
     params = {
         "CO2_frac": 280 * 10 ** -6,
         "z_max": 80000,
